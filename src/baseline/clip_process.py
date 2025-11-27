@@ -16,11 +16,12 @@ class CLIPModel:
         """编码文本为向量"""
         if isinstance(text, str):
             text = [text]
+
         text_token = clip.tokenize(text).to(self.device)
         with torch.no_grad():
             text_feature = self.model.encode_text(text_token)
             text_feature = text_feature / text_feature.norm(dim=-1, keepdim=True)
-        return text_feature.cpu().numpy()
+        return text_feature.cpu().numpy().astype(np.float32)  # 确保返回float32
 
     def encode_image(self, image_path):
         """编码单张图片为向量"""
