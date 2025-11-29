@@ -8,21 +8,18 @@ from sklearn.metrics.pairwise import cosine_similarity
 from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
 
-# --- 导入路径 ---
+# 导入路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 try:
     from baseline.data import Flickr8kDataset
 except ImportError:
-    print("❌ 错误：找不到 baseline.data")
+    print("错误")
     sys.exit(1)
 
-# --- 配置 ---
+# 配置
 EMBEDDING_DIR = "data/embedding"
 MODEL_NAME = "openai/clip-vit-base-patch32"
 SAMPLE_SIZE = 1000
-
-
-# -----------
 
 class BaselineRetriever:
     def __init__(self, text_embeddings, image_embeddings, texts, image_paths, model_name, device="cuda"):
@@ -32,7 +29,7 @@ class BaselineRetriever:
         self.image_paths = image_paths
         self.device = device
 
-        print(f"正在加载原始预训练模型 (Baseline): {model_name} ...")
+        print(f"正在加载原始模型 (Baseline): {model_name} ...")
         try:
             self.model = CLIPModel.from_pretrained(model_name, use_safetensors=True).to(device)
         except Exception:
@@ -72,7 +69,7 @@ class BaselineRetriever:
         return results
 
     def evaluate_retrieval(self, k_values=[1, 5, 10]):
-        print(f"\n开始评估 Recall@{k_values} (基于图片路径匹配)...")
+        print(f"\n开始评估 Recall@{k_values}")
         sim_matrix = cosine_similarity(self.text_embeddings, self.image_embeddings)
         num_samples = len(self.text_embeddings)
         recalls = {k: 0 for k in k_values}
@@ -136,7 +133,7 @@ def main():
         raw_img_paths = np.load(os.path.join(EMBEDDING_DIR, "clip_image_items.npy"), allow_pickle=True)
         texts = np.load(os.path.join(EMBEDDING_DIR, "clip_text_items.npy"), allow_pickle=True)
 
-        # --- 路径修复逻辑 ---
+        # 路径修复逻辑
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(os.path.dirname(current_dir))
         correct_img_dir = os.path.join(project_root, "data", "Flickr8k_Dataset", "Flicker8k_Dataset")
@@ -150,7 +147,7 @@ def main():
         # ------------------
 
     except FileNotFoundError as e:
-        print(f"❌ 错误：文件缺失 - {e}")
+        print(f"错误 - {e}")
         return
 
     test_img_embeds = img_embeds[-SAMPLE_SIZE:]
@@ -165,10 +162,9 @@ def main():
     queries = ["a dog running", "a car on the road", "children playing"]
     os.makedirs("results_vis_baseline", exist_ok=True)
 
-    print("\n=== Baseline 案例检索演示 (Top 10) ===")
+    print("\nBaseline 案例检索演示 (Top 10) ===")
     for i, q in enumerate(queries):
         print(f"\n查询: '{q}'")
-        # --- 改为 10 ---
         res = retriever.retrieve_images(q, top_k=10)
 
         for r_idx, r in enumerate(res):
@@ -176,9 +172,10 @@ def main():
 
         visualize_search_results(q, res, save_name=f"results_vis_baseline/query_{i}_top10.png")
 
-    print(f"\n=== 使用 {SAMPLE_SIZE} 个样本进行公平量化评估 ===")
+    print(f"\n使用 {SAMPLE_SIZE} 个样本进行评估")
     retriever.evaluate_retrieval()
 
 
 if __name__ == "__main__":
+
     main()
