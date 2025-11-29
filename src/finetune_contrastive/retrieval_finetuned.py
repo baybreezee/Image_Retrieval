@@ -2,19 +2,15 @@ import os
 import sys
 import torch
 import numpy as np
-import math  # 新增数学库用于计算行数
+import math 
 import matplotlib.pyplot as plt
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
 
-# --- 配置部分 ---
 EMBEDDING_DIR = "data/embedding_finetuned"
 MODEL_PATH = "./finetuned_model"
 SAMPLE_SIZE = 1000
-
-
-# ----------------
 
 class FinetunedRetriever:
     def __init__(self, text_embeddings, image_embeddings, texts, image_paths, model_path, device="cuda"):
@@ -24,12 +20,12 @@ class FinetunedRetriever:
         self.image_paths = image_paths
         self.device = device
 
-        print(f"正在加载微调后的模型用于查询: {model_path} ...")
+        print(f"加载微调后的模型用于查询: {model_path} ")
         try:
             self.model = CLIPModel.from_pretrained(model_path, use_safetensors=True).to(device)
             self.processor = CLIPProcessor.from_pretrained(model_path)
         except:
-            print("Safetensors加载失败，尝试默认加载...")
+            print("Safetensors加载失败")
             self.model = CLIPModel.from_pretrained(model_path).to(device)
             self.processor = CLIPProcessor.from_pretrained(model_path)
         self.model.eval()
@@ -67,7 +63,7 @@ class FinetunedRetriever:
         return results
 
     def evaluate_retrieval(self, k_values=[1, 5, 10]):
-        print(f"\n开始评估 Recall@{k_values} (基于图片路径匹配)...")
+        print(f"\n开始评估 Recall@{k_values} ")
         sim_matrix = cosine_similarity(self.text_embeddings, self.image_embeddings)
         num_samples = len(self.text_embeddings)
         recalls = {k: 0 for k in k_values}
@@ -91,10 +87,10 @@ class FinetunedRetriever:
 
 
 def visualize_search_results(query, results, save_name=None):
-    """画出 Query 和 Top-K 图片 (支持多行显示)"""
+    """画出 Top-K 图片"""
     top_k = len(results)
 
-    # 动态计算布局：每行最多5张
+    # 每行最多5张
     cols = 5
     rows = math.ceil(top_k / cols)
 
@@ -135,7 +131,7 @@ def main():
         img_paths = np.load(os.path.join(EMBEDDING_DIR, "image_paths.npy"))
         texts = np.load(os.path.join(EMBEDDING_DIR, "texts.npy"))
     except FileNotFoundError:
-        print("❌ 错误：找不到 Finetuned 向量文件。请先运行 generate_vectors.py")
+        print("错误：找不到 Finetuned 向量文件")
         return
 
     test_img_embeds = img_embeds[-SAMPLE_SIZE:]
@@ -154,7 +150,6 @@ def main():
 
     for i, q in enumerate(queries):
         print(f"\n查询: '{q}'")
-        # --- 这里改成 top_k=10 ---
         res = retriever.retrieve_images(q, top_k=10)
 
         for r_idx, r in enumerate(res):
@@ -162,9 +157,10 @@ def main():
 
         visualize_search_results(q, res, save_name=f"results_vis/query_{i}_top10.png")
 
-    print(f"\n=== 使用 {SAMPLE_SIZE} 个样本进行量化评估 ===")
+    print(f"\n使用 {SAMPLE_SIZE} 个样本进行评估")
     retriever.evaluate_retrieval()
 
 
 if __name__ == "__main__":
+
     main()
