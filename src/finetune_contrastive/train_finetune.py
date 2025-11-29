@@ -9,17 +9,16 @@ from transformers import CLIPProcessor, CLIPModel
 from torch.optim import AdamW
 from PIL import Image
 
-# --- 1. 路径设置与导入 ---
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 try:
     from baseline.data import Flickr8kDataset
 except ImportError:
-    print("错误：找不到 baseline.data 模块。请确保代码位于 src 目录下。")
+    print("错误")
     sys.exit(1)
 
 
-# --- 2. Dataset 定义 ---
+# Dataset 定义
 class FinetuneDataset(Dataset):
     def __init__(self, dataframe, processor):
         self.df = dataframe.reset_index(drop=True)
@@ -36,7 +35,7 @@ class FinetuneDataset(Dataset):
         try:
             image = Image.open(image_path).convert("RGB")
         except Exception:
-            # 容错：如果图片读不出来，随机读下一张
+            # 如果图片读不出来，随机读下一张
             return self.__getitem__((idx + 1) % len(self))
 
         inputs = self.processor(
@@ -55,7 +54,7 @@ class FinetuneDataset(Dataset):
         }
 
 
-# --- 3. Loss 函数 ---
+# Loss 函数
 def contrastive_loss(logits_per_image, logits_per_text):
     batch_size = logits_per_image.shape[0]
     labels = torch.arange(batch_size).to(logits_per_image.device)
@@ -64,7 +63,7 @@ def contrastive_loss(logits_per_image, logits_per_text):
     return (loss_img + loss_txt) / 2
 
 
-# --- 4. 自动画图函数 ---
+# 画图
 def plot_loss_curve(steps, losses, save_path="finetune_loss.png"):
     print(f"正在生成 Loss 曲线: {save_path} ...")
     plt.figure(figsize=(10, 6), dpi=100)
@@ -88,8 +87,6 @@ def plot_loss_curve(steps, losses, save_path="finetune_loss.png"):
     plt.savefig(save_path)
     print(f"Loss 曲线已保存！")
 
-
-# --- 5. 主训练流程 ---
 def main():
     # 配置
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -99,14 +96,13 @@ def main():
     lr = 1e-5
     save_path = "./finetuned_model"
 
-    # === 🟢 关键设置：测试集大小 ===
+    # 测试集
     TEST_SIZE = 1000  # 保留最后 1000 条不参与训练
-    # ============================
 
     print(f"正在使用设备: {device}")
 
-    # A. 加载全量数据
-    print("正在加载数据...")
+    # 加载全量数据
+    print("加载数据")
     img_dir, token_path = Flickr8kDataset.get_path()
     dataset_handler = Flickr8kDataset(img_dir, token_path)
     df = dataset_handler.load_dataset()
@@ -114,33 +110,31 @@ def main():
 
     print(f"原始数据总量: {len(df)}")
 
-    # === 🟢 关键步骤：剔除测试集 ===
-    # df.iloc[:-1000] 意思是取从头开始直到倒数第1000个
+    # 剔除测试集数据
+    # df.iloc[:-1000] 取从头开始直到倒数第1000个
     train_df = df.iloc[:-TEST_SIZE]
 
     print(f"-" * 30)
-    print(f"训练集数量: {len(train_df)} (用于更新模型参数)")
-    print(f"测试集数量: {TEST_SIZE} (保留用于后续 retrieval 评估)")
-    print(f"注意：模型将完全不会看到这最后 {TEST_SIZE} 条数据！")
+    print(f"训练集数量: {len(train_df)} ")
+    print(f"测试集数量: {TEST_SIZE} (用于后续 retrieval 评估)")
     print(f"-" * 30)
-    # ============================
 
-    # B. 初始化模型
+    # 初始化模型
     processor = CLIPProcessor.from_pretrained(model_name)
     try:
         model = CLIPModel.from_pretrained(model_name, use_safetensors=True).to(device)
     except:
-        print("Safetensors 加载失败，尝试默认加载...")
+        print("Safetensors 加载失败")
         model = CLIPModel.from_pretrained(model_name).to(device)
 
-    # C. 冻结参数 (只训练 Projection 层)
+    # 冻结参数 (只训练 Projection 层)
     for name, param in model.named_parameters():
         if "projection" in name or "layer_norm" in name:
             param.requires_grad = True
         else:
             param.requires_grad = False
 
-    # D. 准备 DataLoader (只使用 train_df)
+    # 准备 DataLoader (只使用 train_df)
     train_ds = FinetuneDataset(train_df, processor)
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=0)
 
@@ -151,9 +145,9 @@ def main():
     history_losses = []
     global_step = 0
 
-    # E. 训练循环
+    # 训练循环
     model.train()
-    print("开始训练...")
+    print("开始训练")
 
     for epoch in range(epochs):
         total_loss = 0
@@ -188,13 +182,14 @@ def main():
         avg_loss = total_loss / len(train_loader)
         print(f"=== Epoch {epoch + 1} 完成, 平均 Loss: {avg_loss:.4f} ===")
 
-    # F. 保存模型
-    print(f"正在保存模型到 {save_path}...")
+    # 保存模型
+    print(f"正在保存模型到 {save_path}")
     model.save_pretrained(save_path)
     processor.save_pretrained(save_path)
 
-    # G. 自动画图
+    # 画图
     plot_loss_curve(history_steps, history_losses, save_path="finetune_loss.png")
 
 if __name__ == "__main__":
+
     main()
