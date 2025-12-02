@@ -54,7 +54,7 @@ def main():
     set_seed(42)
     
     # ===== 超参区域 =====
-    NUM_EPOCHS = 2          
+    NUM_EPOCHS = 10          
     LR = 5e-5               
     ALPHA = 0.5             
     L2_LAMBDA = 1e-4        
