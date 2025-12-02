@@ -94,7 +94,8 @@ class ImageRetriever:
 # ======================== 测试代码 ========================
 if __name__ == "__main__":
  # 加载已生成的向量文件
-    save_path = "data/embedding"
+    # save_path = "data/embedding"
+    save_path = os.path.join("src", "baseline", "data", "embedding")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     try:
         # 加载图像和文本特征和路径
